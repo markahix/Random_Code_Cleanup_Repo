@@ -47,8 +47,8 @@ def Chimera_attribute_color_string(hex_map,value_array):
         else:
             colorbar_array.append("-")
         colorbar_array.append(hex_map[max_index-i])
-    attr_color_string = " ".join(x for x in attr_color_array)
-    colorbar_string = " ".join(x for x in colorbar_array)
+    attr_color_string = " ".join(iter(attr_color_array))
+    colorbar_string = " ".join(iter(colorbar_array))
     return attr_color_string,colorbar_string
 
 def Chimera_Overlay_Image(pdbfile,array,image_base,number_of_rotations,make_movie,colormap,hide_atom_mask,keep_files,value_max,value_min,quality):
@@ -104,12 +104,10 @@ def Chimera_Overlay_Image(pdbfile,array,image_base,number_of_rotations,make_movi
 def Diff_RMSF(reference,subject):
     ref = np.genfromtxt(reference,skip_header=1,usecols=1)
     sub = np.genfromtxt(subject,skip_header=1,usecols=1)
-    data = sub - ref
-    return data
+    return sub - ref
 
 def RMSF(reference):
-    ref = np.genfromtxt(reference,skip_header=1,usecols=1)
-    return ref
+    return np.genfromtxt(reference,skip_header=1,usecols=1)
 
 
 if __name__ == "__main__":

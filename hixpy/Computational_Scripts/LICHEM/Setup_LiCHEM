@@ -251,54 +251,46 @@ class Atom_Selections():
         return ps_atom_type,qm_atom_type
 
     def Pseudo_basis(self,type1,type2):
-        Csp3_Csp3_basis='''SP 2 1.00
+        if type1==type2 and type1=="Csp3":
+            return '''SP 2 1.00
 0.9034 1.00 1.00
 0.21310 1.90904 0.57864
 '''
-        Csp3_Csp2_basis='''SP 2 1.00
+        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
+            return '''SP 2 1.00
 1.18 1.00 1.00
 0.29 4.99685 0.79341
 '''
-        Csp3_Nsp3_basis='''SP 2 1.00
+        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
+            return '''SP 2 1.00
 0.78 1.00 1.00
 0.17 0.78895 0.31400
 '''
-
-        if type1==type2 and type1=="Csp3":
-            return Csp3_Csp3_basis
-        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
-            return Csp3_Csp2_basis
-        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
-            return Csp3_Nsp3_basis
         else:
             return "[Pseudobond Basis]"
 
     def Pseudo_potential(self,type1,type2):
-        Csp3_Csp3_pseudopotential='''try1 1 2
+        if type1==type2 and type1=="Csp3":
+            return '''try1 1 2
 S Component
 1
 1 7.75 16.49
 P1
 1 1.0 0.0'''
-        Csp3_Csp2_pseudopotential='''try1 1 2
+        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
+            return '''try1 1 2
 S Component
 1
 1 10.8 23.1
 P1
 1 1.0 0.0'''
-        Csp3_Nsp3_pseudopotential='''try1 1 2
+        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
+            return '''try1 1 2
 S Component
 1
 1 9.5 18.4
 P1
 1 1.0 0.0'''
-
-        if type1==type2 and type1=="Csp3":
-            return Csp3_Csp3_pseudopotential
-        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
-            return Csp3_Csp2_pseudopotential
-        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
-            return Csp3_Nsp3_pseudopotential
         else:
             return "[Pseudobond Pseudopotential]"
 
