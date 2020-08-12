@@ -18,11 +18,10 @@ def Plot_Single_RMSF(reference,subject,outfile,title,num_res=0):
     if num_res == 0:
         ref = np.genfromtxt(reference,skip_header=1,usecols=1)
         sub = np.genfromtxt(subject,skip_header=1,usecols=1)
-        data = sub - ref
     else:
         ref = np.genfromtxt(reference,skip_header=1,usecols=1)[:num_res]
         sub = np.genfromtxt(subject,skip_header=1,usecols=1)[:num_res]
-        data = sub - ref        
+    data = sub - ref
     fig = plt.figure(figsize=(6,4),dpi=300)
     ax = fig.add_subplot(1,1,1)
     ax.set_title(title)

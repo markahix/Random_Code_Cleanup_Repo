@@ -4,7 +4,7 @@ import glob
 
 def Chimera_Align_Command_File(reference=None,target=None):
     comms = open("_temp.com","w+")
-    if target == None:
+    if target is None:
         file_list=glob.glob("*.pdb")
         num_files = len(file_list)
         if reference==None:
@@ -16,11 +16,10 @@ def Chimera_Align_Command_File(reference=None,target=None):
                 if file_list[i] != reference:
                     comms.write(f"open {file_list[i]}\n")
         comms.write(f"mm #0 #1-{num_files-1} show false\n")
-        if reference==None:
-            for i in range(num_files):
+        for i in range(num_files):
+            if reference is None:
                 comms.write(f"write format pdb relative #0 #{i} {file_list[i]}\n")
-        else:
-            for i in range(num_files):
+            else:
                 if file_list[i] != reference:
                     comms.write(f"write format pdb relative #0 #{i} {file_list[i]}\n")
     comms.write("stop\n")

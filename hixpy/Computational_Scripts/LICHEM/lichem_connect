@@ -33,14 +33,8 @@ def Build_Connect(tinkerxyz,parameters):
         mass = masses[int(atomtype)]
         element = parmed.periodic_table.element_by_mass(float(mass))
         xyzlist.append([element,x,y,z])
-        if len(charges) < int(atomtype)+1:
-            charge = 0.0
-        else:
-            charge = charges[int(atomtype)]
-        if length > 6:        
-            bond_list = row[-(length-6):]
-        else:
-            bond_list = []
+        charge = 0.0 if len(charges) < int(atomtype)+1 else charges[int(atomtype)]
+        bond_list = row[-(length-6):] if length > 6 else []
         bond_count = len(bond_list)
         atomrow=[index,name,atomtype,mass,charge,bond_count]
         for i in bond_list:
