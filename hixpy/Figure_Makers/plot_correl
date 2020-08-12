@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+
+def Plot_Correlation_Matrix(infile,outfile,title):
+    fig = plt.figure(figsize=(7,6),dpi=300)
+    data = np.genfromtxt(infile)
+    dims = data.shape[0]
+    X, Y = np.mgrid[0:dims:complex(0, dims), 0:dims:complex(0, dims)]
+    ax = fig.add_subplot(1,1,1)
+    ax.set_title(title)
+    im = ax.pcolormesh(X,Y,data,cmap="RdBu",vmin=-1.,vmax=1.)
+    fig.colorbar(im,ticks=[-1,0,1],ax=ax)
+    plt.gca().xaxis.tick_bottom()
+    plt.xticks(rotation=90)
+    plt.savefig(outfile,dpi=300)
+    return
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Syntax Error:  Expected 3 arguments.\n\nplot_correl <input file> <output file> <Image Title>\n\n")
+    else:
+        Plot_Correlation_Matrix(sys.argv[1],sys.argv[2],sys.argv[3])

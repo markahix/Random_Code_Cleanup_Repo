@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+import math
+from scipy.ndimage import gaussian_filter
+import os
+
+def Output_Cleanup(filename):
+    lines_seen = set() # holds lines already seen
+    with open("temp_clean.txt", "w") as output_file:
+        for each_line in open(filename, "r"):
+            if each_line not in lines_seen: # check if line is not duplicate
+                output_file.write(each_line)
+                lines_seen.add(each_line)
+    os.system("mv temp_clean.txt "+filename)
+    return
+
+def Test_State_File(statefile,outname):
+    test = np.genfromtxt(statefile, names = True, delimiter=',')
+    colnames = test.dtype.names[2:]
+    x = test['Time_ps']/1000
+    num_subplots = len(colnames)
+    fig = plt.figure(figsize=(15,num_subplots*1.5),dpi=300)
+    for i in range(num_subplots):
+        colname = colnames[i]
+        ax = fig.add_subplot(math.ceil(num_subplots/2),2,i+1)
+        ax.plot(x[20:],test[colname][20:],color="grey",alpha=0.5,label=colname)
+        avg = np.sum(test[colname][20:])/len(test[colname][20:])
+        data=gaussian_filter(test[colname][20:],sigma=100)
+        ax.plot(x[20:],data,color="blue")
+        yavg = np.empty(len(data))
+        yavg.fill(avg)
+        ax.plot(x[20:],yavg,color="red",linestyle="--",label=str(round(avg,3)))
+        ax.set_xlim(0,x.max())
+        ax.set_xlabel("Time (ns)")
+        ax.legend(loc=2)
+    fig.subplots_adjust(hspace=0.3)
+    fig.savefig(outname,dpi=300)
+    return
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Syntax error: Expected 1 argument.\n\nomm_equil <status file (.out)>\n\n")
+    else:
+        name = sys.argv[1]
+        outname = name.split(".")[0]+"_status.png"
+        Output_Cleanup(name)
+        Test_State_File(name,outname)
+   

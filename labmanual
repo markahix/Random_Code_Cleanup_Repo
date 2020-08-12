@@ -1,0 +1,9 @@
+#!/bin/bash
+
+ORIGINATION=$PWD
+
+cd ~/Lab_Manual
+pdflatex -interaction=nonstopmode main.tex > /dev/null
+dt=$(date '+%Y-%m-%d_%H%M');
+cp main.pdf /storage/scratch/mah0106/LabManuals/${dt}.pdf
+cd $ORIGINATION

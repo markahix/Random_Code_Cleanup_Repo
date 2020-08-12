@@ -1,0 +1,12 @@
+#!/bin/bash
+MINPARAMS=1
+
+FILENAME=$1
+module load amber/16-serial
+
+touch parmstrip.tmp
+echo "parm ${FILENAME}.prmtop" >> parmstrip.tmp
+echo "parmstrip :WAT,K+,Cl-" >> parmstrip.tmp
+echo "parmwrite out ${FILENAME}_stripped.prmtop" >> parmstrip.tmp
+$AMBERHOME/bin/cpptraj ${FILENAME}.prmtop < parmstrip.tmp >> cpptraj.log
+rm parmstrip.tmp

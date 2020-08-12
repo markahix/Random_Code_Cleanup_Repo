@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+
+def attribute_to_residues(array,filename,attribute,description):
+    f = open(filename,"w+")
+    f.write("#"+str(description)+"\n")
+    f.write("attribute: "+str(attribute)+"\n")
+    f.write("match mode: 1-to-1\n")
+    f.write("recipient: residues\n")
+    for i in range(len(array)):
+        f.write("\t:"+str(i+1)+"\t"+str(array[i])+" \n")
+    f.close()
+    return
+
+def Plot_Single_RMSF(reference,subject,outfile,title,num_res=0):
+    if num_res == 0:
+        ref = np.genfromtxt(reference,skip_header=1,usecols=1)
+        sub = np.genfromtxt(subject,skip_header=1,usecols=1)
+        data = sub - ref
+    else:
+        ref = np.genfromtxt(reference,skip_header=1,usecols=1)[:num_res]
+        sub = np.genfromtxt(subject,skip_header=1,usecols=1)[:num_res]
+        data = sub - ref        
+    fig = plt.figure(figsize=(6,4),dpi=300)
+    ax = fig.add_subplot(1,1,1)
+    ax.set_title(title)
+    ax.set_xlim(0,len(data)+1)
+    ax.bar(np.arange(1,len(data)+1,1),data,align="center")
+    fig.savefig(outfile,dpi=300,layout="tight")
+    attribute_to_residues(data, "RMSF_difference_to_Chimera_overlay.txt","rmsf","RMSF by residue")
+    return
+
+if __name__ == "__main__":
+    if len(sys.argv) == 5:
+        Plot_Single_RMSF(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
+    elif len(sys.argv) == 6:
+        Plot_Single_RMSF(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],int(sys.argv[5]))
+    else:
+        print("Syntax Error:  Expected 4 or 5 arguments.\n\nplot_rmsf_single <reference input file> <subject input file> <output image file> <plot title> [<number of residues>]\n\n")

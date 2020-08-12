@@ -1,0 +1,26 @@
+#!/bin/bash
+
+MINPARAMS=5
+FILENAME=$1
+SUFFIX=$2
+e=$3
+f=$[$e+1]
+ENDING=$[$3+$4+1]
+MDINFILE=$5
+
+module load amber/19-cuda_serial
+
+while [ $f -lt $ENDING ]; do
+
+$AMBERHOME/bin/pmemd.cuda -O -i $MDINFILE \
+-o ${FILENAME}_$SUFFIX$f.out \
+-p ${FILENAME}.prmtop \
+-c ${FILENAME}_$SUFFIX$e.rst \
+-r ${FILENAME}_$SUFFIX$f.rst \
+-x ${FILENAME}_$SUFFIX$f.mdcrd \
+-ref ${FILENAME}_$SUFFIX$e.rst
+
+e=$[$e+1]
+f=$[$f+1]
+done
+

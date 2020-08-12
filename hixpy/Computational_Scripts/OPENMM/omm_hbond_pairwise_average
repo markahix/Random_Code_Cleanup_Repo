@@ -1,0 +1,35 @@
+import numpy as np
+import pytraj as pt
+import pandas as pd
+import sys
+
+def Process_Pairwise_HBonds(prmtop,trajectory,res_lim,outfile):
+    df = pd.DataFrame({'Res1':[],'Res2':[],'Average':[]})
+    traj = pt.Trajectory()
+    traj.top = pt.load_topology(prmtop)
+    print("Topology Loaded: "+prmtop)
+    traj.load(trajectory)
+    print("Trajectory Loaded: "+trajectory)
+    for i in range(1,res_lim):
+        for j in range(i+1,res_lim+1):
+            mask_str = ":"+str(i)+","+str(j)
+            data = pt.search_hbonds(traj,mask_str)
+            data = data.values
+            if data.sum() != 0:
+                d_avg = round(data[0].sum()/len(data[0]),3)
+            else:
+                d_avg = 0
+            df = df.append({'Res1':i,'Res2':j,'Average':d_avg},ignore_index=True)
+        df.to_csv(outfile,index=False)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 5:
+        prmtop = sys.argv[1]
+        trajectory = sys.argv[2]
+        resnum = int(sys.argv[3])
+        outfile = sys.argv[4]
+        Process_Pairwise_HBonds(prmtop,trajectory,resnum,outfile)
+    else:
+        pass    
+

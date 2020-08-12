@@ -1,0 +1,21 @@
+#!/bin/bash
+
+MINPARAMS=1
+JOBNAME=$1
+
+touch CPUJobScript.sh
+
+echo "#!/bin/bash" > CPUJobScript.sh
+echo "#PBS -q gac.cpu" >> CPUJobScript.sh
+echo "#PBS -l nodes=1:ppn=20,mem=20GB" >> CPUJobScript.sh
+echo "#PBS -j oe" >> CPUJobScript.sh
+echo "#PBS -r n" >> CPUJobScript.sh
+echo "#PBS -o ${JOBNAME}.logfile" >> CPUJobScript.sh
+echo "#PBS -N $JOBNAME" >> CPUJobScript.sh
+echo "" >> CPUJobScript.sh
+echo "cd \$PBS_O_WORKDIR" >> CPUJobScript.sh
+echo "cat \$PBS_NODEFILE > PBS_NODEFILE" >> CPUJobScript.sh
+echo "#module load amber/19-mvapich2" >> CPUJobScript.sh
+echo "#mpirun -np 20 -hostfile \$PWD/PBS_NODEFILE " >> CPUJobScript.sh
+
+#mv CPUJobScript.sh ${JOBNAME}.sh

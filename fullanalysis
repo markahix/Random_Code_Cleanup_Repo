@@ -1,0 +1,23 @@
+#!/bin/bash
+
+MINPARAMS=2
+
+FILENAME=$1
+RESCOUNT=$2
+
+module load amber/16-serial
+
+touch analysis.tmp
+echo "trajin ${FILENAME}_stripped.mdcrd" > analysis.tmp
+echo "autoimage" >> analysis.tmp
+echo "rms first out ${FILENAME}_RMSD_ByTime.dat :1-$RESCOUNT" >> analysis.tmp
+echo "matrix correl name corrpath out ${FILENAME}_correlation_mtrx.dat :1-$RESCOUNT byres" >>analysis.tmp
+echo "matrix covar name covarpath out ${FILENAME}_covariance_mtrx.dat :1-$RESCOUNT byatom" >>analysis.tmp
+echo "analyze matrix corrpath out ${FILENAME}_mtrxcorr.dat" >> analysis.tmp
+echo "analyze matrix covarpath out ${FILENAME}_mtrxcovar.dat" >> analysis.tmp
+echo "diagmatrix covarpath out ${FILENAME}_diagcovar.dat vecs 100 nmwiz nmwizvecs 100 nmwizfile ${FILENAME}_100.nmd" >> analysis.tmp
+echo "hbond out ${FILENAME}_HBond_ByTime.dat dist 3.0 avgout ${FILENAME}_HBond_ByRes.dat" >> analysis.tmp
+echo "rmsd :1-$RESCOUNT first perres perresout ${FILENAME}_RMSD_ByRes.dat perresavg ${FILENAME}_RMSD_ByRes_Avg.dat" >> analysis.tmp
+echo "atomicfluct :1-$RESCOUNT out ${FILENAME}_RMSF_ByRes.dat byres" >> analysis.tmp
+$AMBERHOME/bin/cpptraj ${FILENAME}_stripped.prmtop < analysis.tmp >> cpptraj.log
+

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+MINPARAMS=2
+FILENAME=$1
+RESIDUE=$2
+
+COULOUT=${FILENAME}_res${RESIDUE}_coul.txt
+VDWOUT=${FILENAME}_res${RESIDUE}_vdw.txt
+
+cp ${FILENAME}_EDA_Coulombic.txt coul.tmp
+cp ${FILENAME}_EDA_VDW.txt vdw.tmp
+
+sed -i 1,1d coul.tmp
+sed -i 1,1d vdw.tmp
+
+awk -v res=$RESIDUE '{ if ($3 == res) printf "%8s %20s %20s\n", $2, $4, $5 }' coul.tmp > $COULOUT
+awk -v res=$RESIDUE '{ if ($2 == res) printf "%8s %20s %20s\n", $3, $4, $5 }' coul.tmp >> $COULOUT
+
+awk -v res=$RESIDUE '{ if ($3 == res) printf "%8s %20s %20s\n", $2, $4, $5 }' vdw.tmp > $VDWOUT
+awk -v res=$RESIDUE '{ if ($2 == res) printf "%8s %20s %20s\n", $3, $4, $5 }' vdw.tmp >> $VDWOUT
+
+

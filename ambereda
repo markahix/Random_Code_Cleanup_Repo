@@ -1,0 +1,120 @@
+#!/bin/bash
+
+MINPARAMS=2
+
+FILENAME=$1
+RESCOUNT=$2
+
+FILECOUNT=$(ls -rt 03_Production/*.mdcrd | wc -l)
+
+# Begin EDA Analysis -- REQUIRES EDA FORTRAN CODE
+        # Making EDA input file
+touch ${FILENAME}_EDA.inp
+echo "$RESCOUNT !number of protein residues" > ${FILENAME}_EDA.inp
+echo "$FILECOUNT !number of files" >> ${FILENAME}_EDA.inp
+tail -n 3 solvatedpdb | head -n 1 > pdbinfo.tmp
+NUMATOMSINPDB=$(awk 'FNR==7 { print $1 } ' ${FILENAME}.prmtop)
+NUMRESINPDB=$(awk ' { print $5 } ' pdbinfo.tmp)
+echo "$NUMATOMSINPDB !total number of atoms" >> ${FILENAME}_EDA.inp
+NUMRESINPROTEIN=$(awk ' { print $2 } ' pdb3.tmp | tail -n -1)
+echo "$NUMRESINPROTEIN !number of protein atoms" >> ${FILENAME}_EDA.inp
+echo "$NUMRESINPDB !number of total residues" >> ${FILENAME}_EDA.inp
+echo "2000 !max number of types" >> ${FILENAME}_EDA.inp
+for i in $(ls -rt 03_Production/*.mdcrd)
+do
+	echo "'$i'" >> ${FILENAME}_EDA.inp
+done
+
+        # Making ans.txt file for program run later.
+touch ans.txt
+echo "${FILENAME}_EDA.inp" >> ans.txt
+echo "${FILENAME}.prmtop" >> ans.txt
+        # Load intel module, compile EDA program from fortran, and run the EDA
+module load intel/17.0
+ifort /home/mah0106/bin/Residue_E_Decomp_07_15.f90 -o Residue_E_Decomp_07_15.x
+sleep 5
+Residue_E_Decomp_07_15.x < ans.txt
+proc_PID=$!
+wait $proc_PID
+
+
+### Begin Processing Output ###
+
+f=1
+
+## Set up loop; the "-lt number" should be the number of protein residues +1
+## i.e. here there’s 455 residues before solvation WAT/K+
+while [ $f -lt $(echo "$RESCOUNT+1" | bc) ]; do
+
+## Extract out per residue information from the f90 output
+## The -v flag allows you to to define a variable in the command
+## Here it’s the previously defined f of the loop iteration
+awk -v f=$f '{if ($2 == f || $3 == f) print}' fort.803 > coul-${f}.tmppy
+awk -v f=$f '{if ($2 == f || $3 == f) print}' fort.806 > vdw-${f}.tmppy
+f=$[$f+1]
+done
+
+##BUILD PYTHON SCRIPT
+
+PYOUT="coul-vdw-byres.py"
+
+PYRANGE=$(echo "$RESCOUNT+1" | bc)
+
+echo "import math " > $PYOUT
+echo "" >> $PYOUT
+echo "Nres = $RESCOUNT         " >> $PYOUT
+echo "Nsteps = Nres - 1  " >> $PYOUT
+echo "name = list(range(1,$PYRANGE))" >> $PYOUT
+echo "" >> $PYOUT
+echo "## Coulomb" >> $PYOUT
+echo -e "ofile_c = open(\"coul-byres.txt\", \"w+\")" >> $PYOUT
+echo "for x in name:" >> $PYOUT
+echo -e "  ifile_c = open(\"coul-{}.tmppy\".format(x),\"r\")" >> $PYOUT
+echo "  Esum_c = 0" >> $PYOUT
+echo "" >> $PYOUT
+echo "  for i in range(Nsteps):" >> $PYOUT
+echo "    dummy_c = ifile_c.readline()" >> $PYOUT
+echo "    dummy_c = dummy_c.split()" >> $PYOUT
+echo "    if int(float(dummy_c[1])) == (int(float(dummy_c[2])) - 1): " >> $PYOUT
+echo "      continue" >> $PYOUT
+echo "    else:" >> $PYOUT
+echo "      Ei_c = float(dummy_c[3])" >> $PYOUT
+echo "      Esum_c += Ei_c" >> $PYOUT
+echo "" >> $PYOUT
+echo "  ifile_c.close()" >> $PYOUT
+echo "  ofile_c.write ('%d \t %f \n' %(x,Esum_c))" >> $PYOUT
+echo "ofile_c.close()" >> $PYOUT
+echo "" >> $PYOUT
+echo "## VDW" >> $PYOUT
+echo -e "ofile_v = open(\"vdw-byres.txt\", \"w+\")" >> $PYOUT
+echo "count = 1" >> $PYOUT
+echo "for x in name:" >> $PYOUT
+echo -e "  ifile_v = open(\"vdw-{}.tmppy\".format(x),\"r\")" >> $PYOUT
+echo "  Esum_v = 0" >> $PYOUT
+echo "" >> $PYOUT
+echo "  for i in range(Nsteps):" >> $PYOUT
+echo "    dummy_v = ifile_v.readline()" >> $PYOUT
+echo "    dummy_v = dummy_v.split()" >> $PYOUT
+echo "    if int(float(dummy_v[1])) == (int(float(dummy_v[2]))-1):" >> $PYOUT
+echo "      continue" >> $PYOUT
+echo "    else:" >> $PYOUT
+echo "      Ei_v = float(dummy_v[3])" >> $PYOUT
+echo "      Esum_v += Ei_v" >> $PYOUT
+echo "" >> $PYOUT
+echo "  ifile_v.close()" >> $PYOUT
+echo "  ofile_v.write ('%d \t %f \n' %(x,Esum_v))" >> $PYOUT
+echo "" >> $PYOUT
+echo "ofile_v.close()" >> $PYOUT
+
+
+## Run the python script
+python coul-vdw-byres.py
+
+## Remove the temp files created in the awk step
+rm *.tmppy 
+
+## Rename the output from python to include the current directory name
+mv coul-byres.txt ${FILENAME}-coul-byres.dat
+mv vdw-byres.txt ${FILENAME}-vdw-byres.dat
+
+

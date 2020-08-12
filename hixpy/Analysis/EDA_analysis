@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import numpy as np
+import os
+import sys
+import glob
+import subprocess
+import parmed as pm
+
+
+def EDA_Calculation(base_name,prmtop,traj_format,unwanted_mask):
+    mdcrd_file = base_name+".mdcrd"
+    mdcrd_process = 0
+    if not os.path.isfile(mdcrd_file):
+        mdcrdconvert = open("mdcrdconvert.txt","w+")
+        mdcrdconvert.write("trajin "+base_name+"."+traj_format+"\n")
+        mdcrdconvert.write("trajout "+base_name+".mdcrd mdcrd\n")
+        mdcrdconvert.close()
+        CPU_Job_Script("$AMBERHOME/bin/cpptraj -p "+prmtop+" < mdcrdconvert.txt","amber/19-serial","MDCRDConvert.sh")
+        mdcrd_process = str(subprocess.check_output("qsub MDCRDConvert.sh",shell=True)).split("\'")[1].split(".")[0]
+    ans_txt = open(base_name+"_EDA.txt","w+")
+    ans_txt.write(base_name+"_EDA.inp\n"+prmtop+"\n")
+    ans_txt.close()
+    eda_inp = open(base_name+"_EDA.inp","w+")
+    prmtopfile = pm.load_file(prmtop)
+    eda_inp.write(str(len(prmtopfile[unwanted_mask].residues))+" !number of protein residues\n")
+    eda_inp.write("1 !number of files\n")
+    eda_inp.write(str(len(prmtopfile.atoms))+" !total number of atoms\n")
+    eda_inp.write(str(len(prmtopfile[unwanted_mask].atoms))+" !number of protein atoms\n")
+    eda_inp.write(str(len(prmtopfile.residues))+" !total number of residues\n")
+    eda_inp.write("2000 !max number of types\n")
+    eda_inp.write(mdcrd_file+"\n")
+    eda_inp.close()
+    CPU_Job_Script(["Residue_E_Decomp_07_15.x < "+base_name+"_EDA.txt","mkdir -p Analysis","mv fort.* Analysis","mv *EDA* Analysis/"],"",base_name+"_EDA.sh")
+    if mdcrd_process == 0:
+        EDA_process = str(subprocess.check_output("qsub "+base_name+"_EDA.sh",shell=True)).split("\'")[1].split(".")[0]
+    else:
+        EDA_process = str(subprocess.check_output("qsub -W depend=afterok:"+mdcrd_process+" "+base_name+"_EDA.sh",shell=True)).split("\'")[1].split(".")[0]
+    return EDA_process
+
+def CPU_Job_Script(command_line,module,JobName):
+    global base_name
+    jobscript = open(JobName,"w+")
+    jobscript.write("#!/bin/bash\n")
+    jobscript.write("#PBS -q gac.cpu\n")
+    jobscript.write("#PBS -l nodes=1:ppn=20,mem=20GB\n")
+    jobscript.write("#PBS -j oe\n")
+    jobscript.write("#PBS -r n\n")
+    jobscript.write("#PBS -o "+JobName.split(".")[0]+".out\n")
+    jobscript.write("#PBS -N "+JobName.split(".")[0]+"\n")
+    jobscript.write("\n")
+    jobscript.write("cd $PBS_O_WORKDIR\n")
+    jobscript.write("cat $PBS_NODEFILE > $PWD/PBS_NODEFILE\n")
+    if type(module) == str:
+        if module != "":
+            jobscript.write("module load "+module+"\n")
+    elif type(module) == list:
+        for line in module:
+            jobscript.write("module load "+line+"\n")
+    if type(command_line) == str:
+        jobscript.write(command_line+"\n")
+    elif type(command_line) == list:
+        for line in command_line:
+            jobscript.write(line+"\n")
+    jobscript.close()
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+            sys.exit("Expected 3 arguments:  \n \n python EDA_analysis.py <mdcrd file> <.prmtop file> <Amber Mask>")
+    base_name= sys.argv[1].split(".")[0]
+    traj_format= sys.argv[1].split(".")[1]
+    prmtop = sys.argv[2]
+    unwanted_mask = sys.argv[3].replace("\\","")
+
+    print("Base Name: ",base_name)
+    print("Traj Format: ",traj_format)
+    print("Amber Mask: ",unwanted_mask)
+    EDA_process = EDA_Calculation(base_name,prmtop,traj_format,unwanted_mask)
+    print(EDA_process)
+

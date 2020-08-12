@@ -1,0 +1,20 @@
+#!/bin/bash
+
+MINPARAMS=6
+FILENAME=$1
+DURATION=$2
+MDTIMESTEP=$3
+PRINTOUT=$4
+TEMPERATURE=$5
+PRESSURE=$6
+
+NUMSTEPS=$(echo "$DURATION*1000000/$MDTIMESTEP" | bc)
+
+
+module load cuda/8.0.44
+
+minimize ${FILENAME}.xyz 0.01
+
+mv ${FILENAME}.xyz_2 ${FILENAME}.xyz
+
+dynamic_omm.x ${FILENAME}.xyz $NUMSTEPS $MDTIMESTEP $PRINTOUT 4 $TEMPERATURE $PRESSURE N > tinker.logfile

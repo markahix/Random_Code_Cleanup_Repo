@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+import sys
+import parmed
+
+def Build_Connect(tinkerxyz,parameters):
+    connect = "connect.inp"
+    xyzfile = open("xyzfile.xyz","w+")
+    tinker = open(tinkerxyz,"r")
+    tinkerxyz = tinker.readlines()[1:]
+    tinker.close()
+    params = open(parameters,"r")
+    parameters = params.readlines()
+    params.close()
+    charges = ["empty"]
+    masses = ["empty"]
+    for line in parameters:
+        if "charge" in line:
+            charges.append(line.split()[2])
+        if "atom" in line:
+            atom = line.split("\"")[2].split()[1]
+            masses.append(atom)
+    atoms = []
+    xyzlist=[]
+    for line in tinkerxyz:
+        row = line.split()
+        length = len(row)
+        index = int(int(row[0])-1)
+        name = row[1]
+        atomtype = row[5]
+        x=row[2]
+        y=row[3]
+        z=row[4]
+        mass = masses[int(atomtype)]
+        element = parmed.periodic_table.element_by_mass(float(mass))
+        xyzlist.append([element,x,y,z])
+        if len(charges) < int(atomtype)+1:
+            charge = 0.0
+        else:
+            charge = charges[int(atomtype)]
+        if length > 6:        
+            bond_list = row[-(length-6):]
+        else:
+            bond_list = []
+        bond_count = len(bond_list)
+        atomrow=[index,name,atomtype,mass,charge,bond_count]
+        for i in bond_list:
+            atomrow.append(str(int(i)-1))
+        atoms.append(atomrow)
+    connect=open(connect,"w+")
+    xyzfile.write(str(len(atoms))+"\n\n")
+    for atom in atoms:
+        connect.write(" ".join(str(x) for x in atom)+"\n")
+    for atom in xyzlist:
+        xyzfile.write(" ".join(str(x) for x in atom)+"\n")
+    connect.close()
+    xyzfile.close()
+if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        tinkerfile = sys.argv[1]
+        parameters = sys.argv[2]
+        Build_Connect(tinkerfile,parameters)
+    else:
+        print("Syntax Error:  Expected 2 arguments\n\n lichem_connect <TINKER xyz> <parameter file (.prm)>\n\n")

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+MINPARAMS=1
+
+FILENAME=$1
+
+cp ${FILENAME}.pdb pdb.tmp
+sed '/CONECT/d' ./pdb.tmp > pdb2.tmp
+sed '/TER/d' ./pdb2.tmp > pdb4.tmp
+head -n -1 pdb4.tmp > pdb3.tmp
+RESCOUNT=$(tail -n -1 pdb3.tmp | cut -c -26 | cut -c 21- | bc )
+
+echo $RESCOUNT
+
+#rm pdb.tmp pdb2.tmp pdb3.tmp

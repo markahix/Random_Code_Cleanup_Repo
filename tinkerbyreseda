@@ -1,0 +1,140 @@
+#!/bin/bash
+
+MINPARAMS=1
+FILENAME=$1
+
+atomsbyres ${FILENAME} #Generates reslist.txt
+
+declare -A VDW_MATRIX
+declare -A MPOLE_MATRIX
+declare -A POLAR_MATRIX
+declare -A VDWRESMAT
+declare -A MPOLERESMAT
+declare -A POLARRESMAT
+TOTALFILECOUNT=0
+
+# Generate Analysis files for each frame in the set that exists.  
+for i in `seq 1 3`;
+do
+	if [ -e ${FILENAME}.00$i ]
+	then
+		analyze ${FILENAME}.00$i D > Full_Interaction_File
+		grep VDW-Hal Full_Interaction_File > VDW_FULL_INT.$i
+		grep M-Pole Full_Interaction_File > MPOLE_FULL_INT.$i
+		rm Full_Interaction_File
+		#Multipole and Polarization Matrix formation
+		while read interaction xindex yindex distance mpole polarize
+		do
+			MPOLE_MATRIX[$xindex,$yindex,$i]=$mpole
+			POLAR_MATRIX[$xindex,$yindex,$i]=$polarize
+		done < MPOLE_FULL_INT.$i
+		rm MPOLE_FULL_INT.$i
+		#van der Waals Matrix Formation
+		while read interaction xindex yindex distance junk vdw
+                do
+                        VDW_MATRIX[$xindex,$yindex,$i]=$vdw
+                done < VDW_FULL_INT.$i
+		rm VDW_FULL_INT.$i
+		TOTALFILECOUNT=$[$TOTALFILECOUNT+1]
+	fi
+done
+
+#for i in `seq 10 99`;
+#do
+#	if [ -e ${FILENAME}.0$i ]
+#	then
+#		analyze ${FILENAME}.0$i D > Full_Interaction_File
+#		grep VDW-Hal Full_Interaction_File > VDW_FULL_INT.$i
+#		grep M-Pole Full_Interaction_File > MPOLE_FULL_INT.$i
+#		rm Full_Interaction_File
+#                #Multipole and Polarization Matrix formation
+#                while read interaction xindex yindex distance mpole polarize
+#                do
+#                        MPOLE_MATRIX[$xindex,$yindex,$i]=$mpole
+#                        POLAR_MATRIX[$xindex,$yindex,$i]=$polarize
+#                done < MPOLE_FULL_INT.$i
+#		 rm MPOLE_FULL_INT.$i
+#                #van der Waals Matrix Formation
+#                while read interaction xindex yindex distance junk vdw
+#                do
+#                        VDW_MATRIX[$xindex,$yindex,$i]=$vdw
+#                done < VDW_FULL_INT.$i
+#		 rm VDW_FULL_INT.$i
+#                TOTALFILECOUNT=$[$TOTALFILECOUNT+1]
+#	fi
+#done
+
+#for i in `seq 100 999`;
+#do
+#	if [ -e ${FILENAME}.$i ]
+#	then
+#		analyze ${FILENAME}.$i D > Full_Interaction_File
+#		grep VDW-Hal Full_Interaction_File > VDW_FULL_INT.$i
+#		grep M-Pole Full_Interaction_File > MPOLE_FULL_INT.$i
+#		rm Full_Interaction_File
+#                #Multipole and Polarization Matrix formation
+#                while read interaction xindex yindex distance mpole polarize
+#                do
+#                        MPOLE_MATRIX[$xindex,$yindex,$i]=$mpole
+#                        POLAR_MATRIX[$xindex,$yindex,$i]=$polarize
+#                done < MPOLE_FULL_INT.$i
+#		 rm MPOLE_FULL_INT.$i
+#                #van der Waals Matrix Formation
+#                while read interaction xindex yindex distance junk vdw
+#                do
+#                        VDW_MATRIX[$xindex,$yindex,$i]=$vdw
+#                done < VDW_FULL_INT.$i
+#		 rm VDW_FULL_INT.$i
+#                TOTALFILECOUNT=$[$TOTALFILECOUNT+1]
+#	fi
+#done
+
+RESX=1
+ATOMCOUNTX=0
+for xatoms in `cat reslist.txt`;
+do
+	RESY=1
+	ATOMCOUNTY=0
+	for yatoms in `cat reslist.txt`;
+	do
+	        VDWRESSUM=0
+	        MPOLERESSUM=0
+	        POLARRESSUM=0
+		for x in `seq $[$ATOMCOUNTX+1] $[$ATOMCOUNTX+$xatoms]`;
+		do
+			for y in `seq $[$ATOMCOUNTY+1] $[$ATOMCOUNTY+$yatoms]`;
+			do
+				for i in `seq 1 $TOTALFILECOUNT`;
+				do
+        	                        VDWRESSUM=$[$VDWRESSUM+${VDW_MATRIX[$x,$y,$i]}]
+                	                MPOLERESSUM=$[$MPOLERESSUM+${MPOLE_MATRIX[$x,$y,$i]}]
+					POLARRESSUM=$[$POLARRESSUM+${POLAR_MATRIX[$x,$y,$i]}]
+					
+				done
+				ATOMCOUNTY=$[$ATOMCOUNTY+$yatoms]
+			done
+			ATOMCOUNTX=$[$ATOMCOUNTX+$xatoms]
+		done
+		#OUTPUT X,Y coordinated values
+		VDWRESMAT[$RESX,$RESY]=$VDWRESSUM
+		MPOLERESMAT[$RESX,$RESY]=$MPOLERESSUM
+		POLARRESMAT[$RESX,$RESY]=$POLARRESSUM
+		RESY=$[$RESY+1]		
+	done
+	RESX=$[$RESX+1]
+done
+
+for (( j=1 ; j<$RESY ; j++ )) 
+do
+	printf "$f1" $j > VDW_ByRes_Interaction.txt
+        printf "$f1" $j > MPOLE_ByRes_Interaction.txt
+        printf "$f1" $j > POLAR_ByRes_Interaction.txt
+	for (( i=1 ; i<$RESX ; i++ )) 
+	do
+        	printf "$f2" ${VDWRESMAT[$i,$j]} >> VDW_ByRes_Interaction.txt
+                printf "$f2" ${MPOLERESMAT[$i,$j]} >> MPOLE_ByRes_Interaction.txt
+                printf "$f2" ${POLARRESMAT[$i,$j]} >> POLAR_ByRes_Interaction.txt
+    	done
+done
+
+

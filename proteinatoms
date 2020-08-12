@@ -1,0 +1,14 @@
+#!/bin/bash
+
+MINPARAMS=1
+
+FILENAME=$1
+
+sed '/CONECT/d' ${FILENAME}.pdb > pdb1.tmp
+sed '/END/d' pdb1.tmp > pdb2.tmp
+sed '/TER/d' pdb2.tmp > pdb3.tmp
+PROTEINATOMS=$(tail -n 1 pdb3.tmp | cut -c 7-11)
+echo $PROTEINATOMS
+rm pdb1.tmp
+rm pdb2.tmp
+rm pdb3.tmp

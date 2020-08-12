@@ -1,0 +1,481 @@
+#!/usr/bin/env python3
+import parmed as prm
+import math
+import argparse
+
+
+class Atom_Selections():
+    '''
+    Description
+    -----------
+    This is the primary class object used by the LiCHEM Setups program.  
+
+    Parameters
+    -----------
+        pdb:  string, pointing to a .pdb formatted file.  This file should be
+              the same one used to generate your TINKER .xyz file for use in
+              the LiCHEM calculations.
+
+    '''
+    def __init__(self,pdb):
+        '''
+        Initialization of class Atom_Selections
+        ----------
+        Generates empty lists for each of the five atom types in a LiCHEM calculation
+            qm_atoms
+            boundary_atoms
+            pseudobond_atoms
+            mm_atoms
+            frozen_atoms
+
+        Assumes all atoms not assigned elsewhere should be frozen atoms.  This ensures 
+        that all atoms are assigned during the course of the setup.
+
+        Obtains box size from the PDB structure.
+        '''
+        self.system=prm.load_file(pdb)
+        self.qm_atoms=[]
+        self.boundary_atoms=[]
+        self.pseudobond_atoms=[]
+        self.mm_atoms=[]
+        self.frozen_atoms=[]
+        for atom in self.system.atoms:
+            self.frozen_atoms.append(atom.idx)
+        self.box_size=list(self.system.get_box()[0,0:3])
+    def Single_Amino_Add(self,resnum):
+        '''
+        Description:
+        ----------
+            Callable function of Atom_Selection class that takes an integer as an argument
+            and adds the atoms of the corresponding residue to their appropriate groups.
+            This function assumes the residue is not connected to another residue in the QM Region.
+            It assumes a pseudobond cut at Ca-Cb and assigns boundary atoms on the peptide backbone.
+
+        '''
+        residue = self.system.residues[resnum-1]
+        backbone_atoms=["N","H","HA","C","O"]
+        for atom in residue.atoms:
+            if atom.idx in self.frozen_atoms:
+                self.frozen_atoms.remove(atom.idx)
+            if atom.name in backbone_atoms:
+                self.boundary_atoms.append(atom.idx)
+            elif atom.name == "CA":
+                self.pseudobond_atoms.append(atom.idx)
+            else:
+                self.qm_atoms.append(atom.idx)
+        self.qm_atoms=list(set(self.qm_atoms))
+        self.boundary_atoms=list(set(self.boundary_atoms))
+        self.pseudobond_atoms=list(set(self.pseudobond_atoms))
+    def Entire_Residue_Add(self,resnum):
+        '''
+        Description:
+        ----------
+            Callable function of Atom_Selection class that takes an integer as an argument
+            and adds all atoms of the corresponding residue to the QM region of the system.
+            This is to be used for situations wherein two connected residues are part of the
+            QM Region.
+        '''
+        residue = self.system.residues[resnum-1]
+        for atom in residue.atoms:
+            if atom.idx in self.frozen_atoms:
+                self.frozen_atoms.remove(atom.idx)
+            self.qm_atoms.append(atom.idx)
+        self.qm_atoms=list(set(self.qm_atoms))
+    def Single_Nucleotide_Add(self,resnum,full_sugar=False):
+        '''
+        Description:
+        ----------
+            Callable function of Atom_Selection class that takes an integer and a boolean 
+            argument and adds atoms from the corresponding nucleotide to their respective
+            groups.  If the full_sugar boolean is TRUE, the entire sugar is added to the
+            boundary atoms group.  This is useful in cases where multiple connected 
+            nucleotides are to be added to the QM region.
+        '''
+        residue = self.system.residues[resnum-1]
+        sugar=["O3'","O5'","C5'","H5'","H5''","C4'","H4'","C3'","H3'","H2'","H2''"]
+        boundary=["O4'","H1'","C2'"]
+        if full_sugar == True:
+            sugar=[]
+            boundary = ["O3'","O5'","C5'","H5'","H5''","C4'","H4'","C3'","H3'","O4'","C2'","H2'","H2''","H1'"]
+        phosphate=["P","OP2","OP1"]
+        pseudo = ["C1'"]
+        for atom in residue.atoms:
+            if atom.idx in self.frozen_atoms:
+                self.frozen_atoms.remove(atom.idx)
+            if atom.name in boundary:
+                self.boundary_atoms.append(atom.idx)
+            elif atom.name in pseudo:
+                self.pseudobond_atoms.append(atom.idx)
+            elif atom.name in phosphate or atom.name in sugar:
+                self.mm_atoms.append(atom.idx)
+            else:
+                self.qm_atoms.append(atom.idx)
+        self.qm_atoms=list(set(self.qm_atoms))
+        self.boundary_atoms=list(set(self.boundary_atoms))
+        self.pseudobond_atoms=list(set(self.pseudobond_atoms))
+
+    def Build_MM_Region(self,threshold=15):
+        '''
+        Description:
+        ----------
+            After all QM region assignments have been completed, the MM region of unfrozen
+            atoms is determined.  By default, a selection of all residues with at least 
+            one atom within 15 Angstroms of the QM region is set as the MM region.  
+            This function takes an optional argument that can be used to modify the cutoff
+            distance.
+        '''
+        total_atoms=len(self.qm_atoms)+len(self.boundary_atoms)+len(self.pseudobond_atoms)
+        for atom in self.qm_atoms:
+            maskstring = "@"+str(atom)+" <:"+str(threshold)
+            for nearby in self.system[maskstring].residues:
+                for res_atom in nearby.atoms:
+                    if res_atom.idx in self.frozen_atoms:
+                        self.frozen_atoms.remove(res_atom.idx)
+                        self.mm_atoms.append(res_atom.idx)
+        for atom in self.boundary_atoms:
+            maskstring = "@"+str(atom)+" <:"+str(threshold)
+            for nearby in self.system[maskstring].residues:
+                for res_atom in nearby.atoms:
+                    if res_atom.idx in self.frozen_atoms:
+                        self.frozen_atoms.remove(res_atom.idx)
+                        self.mm_atoms.append(res_atom.idx)
+        for atom in self.pseudobond_atoms:
+            maskstring = "@"+str(atom)+" <:"+str(threshold)
+            for nearby in self.system[maskstring].residues:
+                for res_atom in nearby.atoms:
+                    if res_atom.idx in self.frozen_atoms:
+                        self.frozen_atoms.remove(res_atom.idx)
+                        self.mm_atoms.append(res_atom.idx)
+    def Print_QM_Atoms(self):
+        print("QM_atoms: ",len(self.qm_atoms))
+        sorted_list=sorted(self.qm_atoms)
+        for i in range(math.ceil(len(sorted_list)/10)):
+            j=i*10
+            print(" ".join(str(x) for x in sorted_list[j:j+10]))
+    def Print_Pseudobond_Atoms(self):
+        print("Pseudobond_atoms: ",len(self.pseudobond_atoms))
+        sorted_list=sorted(self.pseudobond_atoms)
+        for i in range(math.ceil(len(sorted_list)/10)):
+            j=i*10
+            print(" ".join(str(x) for x in sorted_list[j:j+10]))
+    def Print_Boundary_Atoms(self):
+        print("Boundary_atoms: ",len(self.boundary_atoms))
+        sorted_list=sorted(self.boundary_atoms)
+        for i in range(math.ceil(len(sorted_list)/10)):
+            j=i*10
+            print(" ".join(str(x) for x in sorted_list[j:j+10]))
+    def Print_Frozen_Atoms(self):
+        print("Frozen_atoms: ",len(self.frozen_atoms))
+        sorted_list=sorted(self.frozen_atoms)
+        for i in range(math.ceil(len(sorted_list)/10)):
+            j=i*10
+            print(" ".join(str(x) for x in sorted_list[j:j+10]))
+    def Process_Residue_List(self,res_num_list):
+        '''
+        Description:
+        ----------
+            Takes a list of integers from the user input and assigns them to
+            either protein, nucleic, or other lists, then processes the respective lists
+            using their correct functions.  This allows the user to provide a simple
+            list of residue numbers and get the proper atom assignments back.
+        '''
+        protein_residues=[]
+        for res in self.system[":ALA,ARG,ASN,ASP,MET,PHE,ASH,CYS,CYM,CYX,SER,THR,TYR,GLU,GLH,GLN,GLY,PRO,VAL,ILE,LEU,LYS,LYN,HIS,HIE,HID,HIP,TRP"].residues:
+            protein_residues.append(res.number)
+        nucleic_residues=[]
+        for res in self.system[":A,C,G,T,U,DA,DC,DG,DT,DU,A3,C3,G3,T3,U3,DA3,DC3,DG3,DT3,DU3,A5,C5,G5,T5,U5,DA5,DC5,DG5,DT5,DU5"].residues:
+            nucleic_residues.append(res.number)
+        for residue_number in res_num_list:
+            if residue_number in protein_residues:
+                self.Single_Amino_Add(residue_number)
+            elif residue_number in nucleic_residues:
+                self.Single_Nucleotide_Add(residue_number)
+            else:
+                self.Entire_Residue_Add(residue_number)
+    def Write_Basis_File(self,basis_set_qm,filename="BASIS"):
+        '''
+        Description:
+        ----------
+            Creates a BASIS file for use in LiCHEM calculations.
+            Takes as an argument a string defining the basis set to be used 
+            (Gaussian formatted) and an optional argument for the filename 
+            if something other than 'BASIS' is to be used.  This function also
+            checks the atom types for each pseudobond and assigns the correct
+            pseudopotentials.
+        '''
+        gaussian_atoms = sorted(self.qm_atoms + self.pseudobond_atoms)
+        f=open(filename,"w+")
+        for i in range(math.ceil(len(self.qm_atoms)/10)):
+                j=i*10
+                f.write(" ".join(str(gaussian_atoms.index(x)) for x in self.qm_atoms[j:j+10])+"  0\n"+basis_set_qm+"\n****\n")
+        for atom in sorted(self.pseudobond_atoms):
+            type1,type2=self.ps_atom_type_check(atom)
+            ps_basis=self.Pseudo_basis(type1,type2)
+            f.write(str(gaussian_atoms.index(atom)+1)+"  0 STO-2G\n"+ps_basis+"****\n")
+        f.write("\n")
+        for atom in sorted(self.pseudobond_atoms):
+            type1,type2=self.ps_atom_type_check(atom)
+            ps_potential=self.Pseudo_potential(type1,type2)
+            f.write(str(gaussian_atoms.index(atom)+1)+"  0 \n"+ps_potential+"\n\n")
+        f.write("\n")
+        return
+    def ps_atom_type_check(self,ps_atom):
+        qm_atom=0
+        name = self.system.atoms[ps_atom].name
+        ps_atom_type=""
+        if "C" in name:
+            if len(self.system.atoms[ps_atom].bonds) == 4:
+                ps_atom_type="Csp3"
+            elif len(self.system.atoms[ps_atom].bonds) == 3:
+                ps_atom_type="Csp2"
+        elif "N" in name:
+            ps_atom_type="Nsp3"
+
+        for bond in self.system.atoms[ps_atom].bonds:
+            if bond.atom1.idx != ps_atom:
+                if bond.atom1.idx in self.qm_atoms:
+                    qm_atom = bond.atom1.idx
+            elif bond.atom2.idx != ps_atom:
+                if bond.atom2.idx in self.qm_atoms:
+                    qm_atom = bond.atom2.idx
+
+        name = self.system.atoms[qm_atom].name
+        qm_atom_type=""
+        if "C" in name:
+            if len(self.system.atoms[qm_atom].bonds) == 4:
+                qm_atom_type="Csp3"
+            elif len(self.system.atoms[qm_atom].bonds) == 3:
+                qm_atom_type="Csp2"
+        elif "N" in name:
+            qm_atom_type="Nsp3"
+        return ps_atom_type,qm_atom_type
+
+    def Pseudo_basis(self,type1,type2):
+        Csp3_Csp3_basis='''SP 2 1.00
+0.9034 1.00 1.00
+0.21310 1.90904 0.57864
+'''
+        Csp3_Csp2_basis='''SP 2 1.00
+1.18 1.00 1.00
+0.29 4.99685 0.79341
+'''
+        Csp3_Nsp3_basis='''SP 2 1.00
+0.78 1.00 1.00
+0.17 0.78895 0.31400
+'''
+
+        if type1==type2 and type1=="Csp3":
+            return Csp3_Csp3_basis
+        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
+            return Csp3_Csp2_basis
+        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
+            return Csp3_Nsp3_basis
+        else:
+            return "[Pseudobond Basis]"
+
+    def Pseudo_potential(self,type1,type2):
+        Csp3_Csp3_pseudopotential='''try1 1 2
+S Component
+1
+1 7.75 16.49
+P1
+1 1.0 0.0'''
+        Csp3_Csp2_pseudopotential='''try1 1 2
+S Component
+1
+1 10.8 23.1
+P1
+1 1.0 0.0'''
+        Csp3_Nsp3_pseudopotential='''try1 1 2
+S Component
+1
+1 9.5 18.4
+P1
+1 1.0 0.0'''
+
+        if type1==type2 and type1=="Csp3":
+            return Csp3_Csp3_pseudopotential
+        if (type1 == "Csp3" and type2 == "Csp2") or (type1 == "Csp2" and type2 == "Csp3"):
+            return Csp3_Csp2_pseudopotential
+        if (type1 == "Csp3" and type2 == "Nsp3") or (type1 == "Nsp3" and type2 == "Csp3"):
+            return Csp3_Nsp3_pseudopotential
+        else:
+            return "[Pseudobond Pseudopotential]"
+
+
+
+class Regions_Setup():
+    '''
+    Description:
+    ----------
+    Initializes a regions.inp file with all keywords explicitly defined using their
+    default values.  These keywords may also be modified with a parameter assignment
+    call.
+    '''
+    def __init__(self):
+        self.Acceptance_ratio = 0.50
+        self.Beads = 1
+        self.Box_size = [10000,10000,10000] # Write as "10000 10000 10000"
+        self.Calculation_type = None #"SP,Energy,Single-Point", "Optimize,opt","Steep,SD","DFP","NEB,CINEB,CI-NEB","PIMC"
+        self.Electrostatics = "AMOEBA" #"Charges,AMOEBA"
+        self.Ensemble = None # "NVT,NPT"
+        self.Eq_steps = 0
+        self.Ewald_cut = 12
+        self.Frozen_ends = "No"
+        self.Init_path_chk = "Yes"
+        self.LREC_cut = 1000
+        self.LREC_exponent = 3
+        self.Max_opt_steps = 200
+        self.Max_stepsize = 0.10
+        self.MM_opt_cut = 1000
+        self.MM_opt_tolerance = "1e-2"
+        self.MM_type = "TINKER" #"TINKER,LAMMPS"
+        self.Opt_stepsize = 1.00
+        self.PBC = "No"
+        self.Potential_type = "QMMM" # "QMMM, QM, MM"
+        self.Pressure = 0.0
+        self.Print_normal_modes = "No"
+        self.Print_steps = 5000
+        self.Prod_steps = 0
+        self.QM_basis = "GEN" # "Basis Set to be used"
+        self.QM_charge = 0
+        self.QM_memory = "80GB"
+        self.QM_method = "wB97XD" # "wB97xD"
+        self.QM_opt_tolerance = "1e-2"
+        self.QM_spin = 1
+        self.QM_type = "g16" #"g16,Psi4,NWChem"
+        self.QM_units = "Angstrom"
+        self.Solv_model = None # "Type of implicit solvation model"
+        self.Spring_constant = 1.0 # 
+        self.Temperature = 300.0 # temp in Kelvin
+        self.TS_freqs = "No"
+        self.Use_Ewald = "No"
+        self.Use_LREC = "No"
+        self.Use_MM_cutoff = "No"
+        self.Use_solvent = "No"
+        self.keep_files = "Yes"
+
+
+def Write_Regions_File(region,atoms,filename="regions.inp"):
+    '''
+    Description:
+    ----------
+        Takes a Regions_Setup object and an Atom_Selection object and generates
+        the regions.inp file with all correctly assigned atoms, atom counts, 
+        and keywords defined.
+    '''
+    f=open(filename,"w+")
+    f.write("Potential_type: " + region.Potential_type+"\n")
+    f.write("QM_type: " + region.QM_type+"\n")
+    f.write("QM_method: " + region.QM_method+"\n")
+    f.write("QM_basis: " + region.QM_basis+"\n")
+    f.write("QM_memory: " + region.QM_memory+"\n")
+    f.write("QM_charge: " + str(region.QM_charge)+"\n")
+    f.write("QM_spin: " + str(region.QM_spin)+"\n")
+    f.write("MM_type: " + region.MM_type+"\n")
+    f.write("QM_opt_tolerance: " + str(region.QM_opt_tolerance) + "\n")
+    f.write("MM_opt_tolerance: " + str(region.MM_opt_tolerance) + "\n")
+    f.write("Electrostatics: " + region.Electrostatics+"\n")
+    f.write("Box_size: "+" ".join(str(x) for x in region.Box_size)+"\n")
+    f.write("Calculation_type: " + region.Calculation_type+"\n")
+    f.write("keep_files: " + region.keep_files+"\n")
+    f.write("QM_atoms: "+str(len(atoms.qm_atoms))+"\n")
+    sorted_list=sorted(atoms.qm_atoms)
+    for i in range(math.ceil(len(sorted_list)/10)):
+        j=i*10
+        f.write(" ".join(str(x) for x in sorted_list[j:j+10])+"\n")
+    f.write("Pseudobond_atoms: "+str(len(atoms.pseudobond_atoms))+"\n")
+    sorted_list=sorted(atoms.pseudobond_atoms)
+    for i in range(math.ceil(len(sorted_list)/10)):
+        j=i*10
+        f.write(" ".join(str(x) for x in sorted_list[j:j+10])+"\n")
+    f.write("Boundary_atoms: "+str(len(atoms.boundary_atoms))+"\n")
+    sorted_list=sorted(atoms.boundary_atoms)
+    for i in range(math.ceil(len(sorted_list)/10)):
+        j=i*10
+        f.write(" ".join(str(x) for x in sorted_list[j:j+10])+"\n")
+    f.write("Frozen_atoms: "+str(len(atoms.frozen_atoms))+"\n")
+    sorted_list=sorted(atoms.frozen_atoms)
+    for i in range(math.ceil(len(sorted_list)/10)):
+        j=i*10
+        f.write(" ".join(str(x) for x in sorted_list[j:j+10])+"\n")
+    f.close()
+    return
+
+def Calc_Choice():
+    print("1.    (SP) Single Point Energy")
+    print("2.   (OPT) Optimization ")
+    print("3.   (DFP) Davidon-Fletcher-Powell Optimization ")
+    print("4.    (SD) Steepest Descent ")
+    print("5.   (NEB) Nudged Elastic Band ")
+    print("6. (FBNEB) FB Nudged Elastic Band ")
+    print("7.  (PIMC) Path-Integral Monte Carlo ")
+    choice = int(input("Please enter your choice: "))
+    if choice == 1:
+        return "SP"
+    if choice == 2:
+        return "OPT"
+    if choice == 3:
+        return "DFP"
+    if choice == 4:
+        return "SD"
+    if choice == 5:
+        return "NEB"
+    if choice == 6:
+        return "FBNEB"
+    if choice == 7:
+        return "PIMC"
+
+#def Write_Connect_File(atoms,parameters):
+#    params=open(parameters,"r")
+#    param_lines=params.readlines()
+#    params.close()
+#    pass
+
+
+def Main_Menu():
+    atoms = None
+    regions = Regions_Setup()
+    choice = 1
+    calc_type = 0
+    while choice != 0:
+        if atoms == None:
+            print("1. Load PDB")
+        print("2. Load Parameter File")
+        print("3. Add residues to QM region")
+        print("4. Set calculation type")
+        print("5. Set distance threshold for frozen atoms.")
+        print("6. Build regions.inp, connect.inp, and BASIS")
+        print("0. Exit program")
+        choice = int(input("Enter choice: "))
+        if choice == 1:
+            PDB_filename = input("Enter PDB filename: ")
+            atoms = Atom_Selections(PDB_filename)
+            regions.Box_size=atoms.box_size
+        if choice == 2:
+            parameters = input("Enter parameter filename: ")
+        if choice == 3 and atoms != None:
+            res_list = input("Enter list of residue numbers separated by commas (1,3,4,9,...)\n> ")
+            res_list = list(res_list.split(","))
+            res_list = list(map(int,res_list))
+            atoms.Process_Residue_List(res_list)
+        if choice == 4:
+            regions.Calculation_type=Calc_Choice()
+            print("Calculation Type:  "+str(regions.Calculation_type))
+        if choice == 5:
+            threshold = input("Enter the distance in Angstroms: ")
+            atoms.Build_MM_Region(threshold)
+        if choice == 6:
+            basis_set_qm = input("Please enter the standard basis set you wish to use: ")
+            atoms.Write_Basis_File(basis_set_qm)
+            Write_Regions_File(regions,atoms)
+            #Write_Connect_File(atoms,parameters)
+        if choice == 0:
+            print("Goodbye!")
+    return
+
+
+
+
+if __name__ == "__main__":
+    Main_Menu()

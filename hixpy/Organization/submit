@@ -1,0 +1,13 @@
+#!/bin/bash
+
+MINPARAMS=1
+
+FILENAME=$1
+
+JOB_ID=`qsub $FILENAME`
+
+dt=$(date '+%d/%m/%Y %H:%M:%S')
+SCRIPT=$(echo "$FILENAME" | sed "s/\_/\\\_/g")
+DIRECTORY=$(echo "$PWD" | sed 's/home\/mah0106\///' | sed "s/\_/\\\_/g")
+JOBNUM=$(echo "$JOB_ID" | cut -d'.' -f 1)
+echo "$JOBNUM"

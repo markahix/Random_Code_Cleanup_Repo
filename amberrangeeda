@@ -1,0 +1,54 @@
+#!/bin/bash
+
+MINPARAMS=3
+FILENAME=$1
+START=$2
+RESEND=$3
+
+COULOUT=${FILENAME}_res${START}-${RESEND}_coul.txt
+VDWOUT=${FILENAME}_res${START}-${RESEND}_vdw.txt
+
+cp ${FILENAME}_EDA_Coulombic.txt coul.tmp
+cp ${FILENAME}_EDA_VDW.txt vdw.tmp
+
+sed -i 1,1d coul.tmp
+sed -i 1,1d vdw.tmp
+
+unset COULENERGY
+unset VDWENERGY
+
+for i in `seq $START $RESEND`;
+do
+	awk -v res=$i '{ if ($3 == res) printf "%8s %20s %20s\n", $2, $4, $5 }' coul.tmp > coul_${i}.tmp
+	awk -v res=$i '{ if ($2 == res) printf "%8s %20s %20s\n", $3, $4, $5 }' coul.tmp >> coul_${i}.tmp
+	awk -v res=$i '{ if ($3 == res) printf "%8s %20s %20s\n", $2, $4, $5 }' vdw.tmp > vdw_${i}.tmp
+	awk -v res=$i '{ if ($2 == res) printf "%8s %20s %20s\n", $3, $4, $5 }' vdw.tmp >> vdw_${i}.tmp
+
+	LINECOUNT=$(eval wc -l < coul_${i}.tmp)
+	for j in `seq 1 $LINECOUNT`;
+	do
+		INDEX=$(awk -v line=$j 'FNR==line {print $1}' coul_${i}.tmp)
+		COULENERGY[$INDEX]=${COULENERGY[$INDEX]+$(awk -v line=$j 'FNR==line {print $2}' coul_${i}.tmp)}
+	done
+	
+        LINECOUNT=$(eval wc -l < vdw_${i}.tmp)
+        for j in `seq 1 $LINECOUNT`;
+        do
+                INDEX=$(awk -v line=$j 'FNR==line {print $1}' vdw_${i}.tmp)
+                VDWENERGY[$INDEX]=${VDWENERGY[$INDEX]+$(awk -v line=$j 'FNR==line {print $2}' vdw_${i}.tmp)}
+        done
+	rm coul_${i}.tmp vdw_${i}.tmp
+done
+
+for i in "${!COULENERGY[@]}"; 
+do 
+ 	 printf "%8s\t%20s\n" "$i" "${COULENERGY[$i]}" >>$COULOUT
+done
+
+for i in "${!VDWENERGY[@]}"; 
+do 
+         printf "%8s\t%20s\n" "$i" "${VDWENERGY[$i]}" >>$VDWOUT
+done
+
+
+rm coul.tmp vdw.tmp

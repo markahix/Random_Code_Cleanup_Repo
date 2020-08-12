@@ -1,0 +1,14 @@
+#!usr/bin/env python3
+import sys
+
+
+def SavePoint(current_step, chkpntfile, statename):
+    checkpoint_file_string = "mv " + chkpntfile +" "+ str(chkpntfile.replace(".chk","_"+str(current_step)+".chk"))
+    os.system(checkpoint_file_string)
+    statename_file_string =  "cp " + statename +" "+ str(statename.replace(".out","_"+str(current_step)+".out"))
+    os.system(statename_file_string)
+    return
+
+if __name__ == "__main__":
+    SavePoint(sys.argv[1],sys.argv[2],sys.argv[3])
+    return

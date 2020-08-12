@@ -1,0 +1,113 @@
+#!/bin/bash
+
+MINPARAMS=1
+FILENAME=$1
+
+sed 's/CYM/CYD/' $FILENAME > temporary.tmp
+sed 's/DA3/DA /' temporary.tmp > temporary2.tmp
+sed 's/DT3/DT /' temporary2.tmp > temporary3.tmp 
+sed 's/DC3/DC /' temporary3.tmp > temporary4.tmp
+sed 's/DG3/DG /' temporary4.tmp > temporary5.tmp
+sed 's/DA5/DA /' temporary5.tmp > temporary6.tmp
+sed 's/DT5/DT /' temporary6.tmp > temporary7.tmp
+sed 's/DC5/DC /' temporary7.tmp > temporary8.tmp
+sed 's/DG5/DG /' temporary8.tmp > temporary9.tmp
+mv temporary9.tmp $FILENAME
+rm *.tmp
+
+mkdir -p 00_Backups/
+mv *.key 00_Backups/
+
+grep WAT $FILENAME >> waters.pdb
+sed -i '/WAT/d' $FILENAME
+
+WATERCOUNT=$(wc -l < waters.pdb)
+
+TERCOUNT=$(echo "$WATERCOUNT/3 + 2" | bc)
+head -n -$TERCOUNT $FILENAME > temporary.tmp
+
+mv temporary.tmp $FILENAME
+
+cat $FILENAME | awk -v RS="TER" '{ print $0 > "fragment" NR }'
+
+COUNT=0
+for i in $(ls fragment*); do
+COUNT=$[$COUNT+1]
+done
+
+for j in $(ls -rt fragment*); do
+	RESNAME=$(head -n 2 $j |tail -n 1 | cut -c 18-20)
+	echo "$j : $RESNAME"
+	if [ "$RESNAME" == "WAT" ]
+	then
+		pdbxyz $j amoebabio09.prm > /dev/null
+		FILE=${j}.xyz
+		sed '/  O  /s/     0 /   402 /' $FILE > temp.dat
+		sed '/  H  /s/     0 /   403 /' temp.dat > temp2.dat
+		mv temp2.dat $FILE
+	elif [ "$RESNAME" == "Cl-" ]
+	then
+	        pdbxyz $j amoebabio09.prm > /dev/null
+                FILE=${j}.xyz
+                sed '/  L- /s/     0/   413/' $FILE > temp.dat
+		mv temp.dat $FILE
+        elif [ "$RESNAME" == "ZN " ]
+        then
+                pdbxyz $j amoebabio09.prm > /dev/null
+                FILE=${j}.xyz
+                sed '/  N  /s/     0/   412/' $FILE > temp.dat
+		mv temp.dat $FILE
+        elif [ "$RESNAME" == "MG " ]
+        then
+                pdbxyz $j amoebabio09.prm > /dev/null
+                FILE=${j}.xyz
+                sed '/  G  /s/     0/   410/' $FILE > temp.dat
+                mv temp.dat $FILE
+	else
+		pdbxyz $j amoebabio09.prm > /dev/null
+        fi
+	rm $j
+done
+
+pdbxyz waters.pdb amoebabio09.prm > /dev/null
+sed '/  O  /s/     0 /   402 /' waters.xyz > temp.dat
+sed '/  H  /s/     0 /   403 /' temp.dat > waters.xyz
+
+rm temp.dat > /dev/null
+
+touch xyzappend
+echo "#!/usr/bin/expect -f" >> xyzappend
+
+echo "set timeout -1" >> xyzappend
+echo "spawn /home/mah0106/bin/Tinker/xyzedit" >> xyzappend
+echo "match_max 100000" >> xyzappend
+
+echo  "expect \"Enter Cartesian Coordinate File Name : \"" >> xyzappend
+echo  "send \"fragment1.xyz\\r\" " >> xyzappend
+
+echo  "expect \"Enter Potential Parameter File Name : \"" >>xyzappend
+echo  "send \"amoebabio09.prm\\r\" " >> xyzappend
+
+for i in `seq 2 $COUNT`;do
+	echo "expect -ex { Number of the Desired Choice [<CR>=Exit] : } " >> xyzappend
+        echo "send \"18\\r\" " >> xyzappend
+	echo "expect \"Enter Cartesian Coordinate File Name : \" " >> xyzappend
+	echo "send \"fragment${i}.xyz\\r\" " >> xyzappend
+done
+echo "expect -ex { Number of the Desired Choice [<CR>=Exit] : } " >> xyzappend
+echo "send \"18\\r\" " >> xyzappend
+echo "expect \"Enter Cartesian Coordinate File Name : \" " >> xyzappend
+echo "send \"waters.xyz\\r\" " >> xyzappend
+echo "expect -ex { Number of the Desired Choice [<CR>=Exit] : } " >> xyzappend
+echo "send \"\\r\"" >> xyzappend
+echo "expect eof" >> xyzappend
+
+expect xyzappend > tinker.logfile
+
+rm temp.dat > /dev/null
+rm xyzappend
+mv fragment1.xyz_2 final.xyz
+rm fragment*.xyz
+
+mv 00_Backups/*.key ./
+

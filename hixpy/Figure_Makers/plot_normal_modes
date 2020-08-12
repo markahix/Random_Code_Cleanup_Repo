@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import LinearSegmentedColormap
+import sys
+import prody as prd
+
+def plot_normal_modes(filename,output,title,num_of_modes=4):
+    NMA_data,Atom_Group = prd.parseNMD(filename)
+    eigens = NMA_data.getEigvals()
+    scales = []
+    temp = open(filename)
+    lines = temp.readlines()
+    temp.close()
+    for line in lines:
+        if 'mode' in line[:5]:
+            scales.append(float(line.split()[:3][-1]))
+    fig = plt.figure(figsize=(10,6),dpi=300)
+    ax = fig.add_subplot(1,1,1)
+    cmap = cm.get_cmap('viridis')
+    color_range=np.linspace(0,1,num_of_modes)
+    print(color_range)
+    for i in range(num_of_modes):
+        dataset = [np.linalg.norm(NMA_data.getEigvecs()[:,i][n:n+3])*scales[i]*eigens[i] for n in range(0, len(NMA_data.getEigvecs()[:,i]), 3)]
+        ax.plot(dataset,label="Mode "+str(i+1),color=cmap(color_range[i]))
+    ax.set_title(title)
+    ax.legend()
+    ax.set_xlim(0,len(dataset))
+    fig.savefig(output,dpi=300,layout="tight")
+    return
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Syntax Error:  Expected 3 or 4 arguments.\n\nplot_normal_modes <input file> <output file> <Image Title> [<Number of Modes>]\n\n")
+    else:
+        plot_normal_modes(sys.argv[1],sys.argv[2],sys.argv[3],int(sys.argv[4]))

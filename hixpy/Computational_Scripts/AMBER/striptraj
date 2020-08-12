@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import numpy as np
+import os
+import sys
+
+def Strip_File(trajfile,stripmask,centermask,outfile):
+    strip = open("striptraj.txt","w+")
+    strip.write("trajin " + trajfile + "\n")
+    strip.write("strip " + stripmask + "\n")
+    strip.write("autoimage anchor " + centermask + "\n")
+    strip.write("trajout " + outfile + "\n")
+    strip.close()
+
+def ParmStrip(stripmask,outfile):
+    strip = open("parmstrip.txt","w+")
+    strip.write("parmstrip " + stripmask + "\n")
+    strip.write("parmwrite out " + outfile.split(".")[0]+".prmtop\n")
+    strip.write("run\n")
+    strip.close()
+
+def CPU_Job_Script(prmtop):
+    jobscript = open("StripTraj.sh","w+")
+    jobscript.write("#!/bin/bash\n")
+    jobscript.write("#PBS -q gac.cpu\n")
+    jobscript.write("#PBS -l nodes=1:ppn=20,mem=20GB\n")
+    jobscript.write("#PBS -j oe\n")
+    jobscript.write("#PBS -r n\n")
+    jobscript.write("#PBS -o error.err\n")
+    jobscript.write("#PBS -N StripTraj\n")
+    jobscript.write("\n")
+    jobscript.write("cd $PBS_O_WORKDIR\n")
+    jobscript.write("cat $PBS_NODEFILE > $PWD/PBS_NODEFILE\n")
+    jobscript.write("module load amber/19-serial\n")
+    jobscript.write("$AMBERHOME/bin/cpptraj -p " + prmtop + " < parmstrip.txt\n" )
+    jobscript.write("$AMBERHOME/bin/cpptraj -p " + prmtop + " < striptraj.txt\n" )
+    jobscript.write("rm striptraj.txt StripTraj.sh parmstrip.txt")
+    jobscript.close()
+
+if __name__ == "__main__":
+    if len(sys.argv) == 6:
+        prmtop = sys.argv[1]
+        CPU_Job_Script(prmtop)
+        trajfile = sys.argv[2]
+        stripmask = sys.argv[3]
+        centermask = sys.argv[4]
+        outfile = sys.argv[5]
+        ParmStrip(stripmask,outfile)
+        Strip_File(trajfile, stripmask, centermask, outfile)
+        os.system("qsub StripTraj.sh")
+    else:
+        print("Syntax error:  Expected 4 arguments\n\n striptraj <Prmtop File> <Trajectory File> <Strip Mask> <Center Mask> <Output Filename>")

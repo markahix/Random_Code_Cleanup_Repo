@@ -1,0 +1,19 @@
+#!/bin/bash
+
+MINPARAMS=2
+
+FILENAME=$1
+LOCATION=$2
+
+module load amber/16-serial
+
+touch trajcomms.tmp
+echo "reference $LOCATION/01_Minimization_Files/${FILENAME}_init0.rst" >> trajcomms.tmp
+for i in $(ls -rt $LOCATION/03_Production/*_prod*.mdcrd);
+do
+        echo "trajin $i" >> trajcomms.tmp
+done
+echo "autoimage" >> trajcomms.tmp
+echo "trajout ${FILENAME}_fulltraj.mdcrd crd" >> trajcomms.tmp
+$AMBERHOME/bin/cpptraj ${FILENAME}.prmtop < trajcomms.tmp >> cpptraj.log
+

@@ -1,0 +1,3 @@
+#!/bin/bash
+sudo mount -t cifs -o username=pi,password=andthesuspectsF1,uid=1000,gid=1000 //192.168.0.13/Warehouse /home/mark/RaspberryPi
+

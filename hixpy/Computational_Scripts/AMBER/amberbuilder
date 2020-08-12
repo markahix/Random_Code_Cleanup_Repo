@@ -1,0 +1,31 @@
+#!/bin/bash
+
+MINPARAMS=1
+FILENAME=$1
+
+OUTPUT="tleap_script"
+
+# Making command files
+touch $OUTPUT
+echo "source leaprc.water.tip3p" >> $OUTPUT
+echo "source leaprc.protein.ff14SB" >> $OUTPUT
+echo "source leaprc.DNA.OL15" >> $OUTPUT
+echo "source leaprc.RNA.YIL" >> $OUTPUT
+echo "working_pdb=loadpdb \"${FILENAME}.pdb\"" >> $OUTPUT
+echo "savepdb working_pdb ${FILENAME}.pdb" >> $OUTPUT
+echo "addions working_pdb K+ 0" >> $OUTPUT
+echo "addions working_pdb Cl- 0" >> $OUTPUT
+echo "solvatebox working_pdb TIP3PBOX 12.0" >> $OUTPUT
+echo "savepdb working_pdb ${FILENAME}_solvated.pdb" >> $OUTPUT
+echo "saveamberparm working_pdb ${FILENAME}.prmtop ${FILENAME}.inpcrd" >> $OUTPUT
+echo "quit" >> $OUTPUT
+
+module purge
+#source ~/.bashrc
+module load amber/19-serial
+$AMBERHOME/bin/tleap -f $OUTPUT
+rm $OUTPUT
+
+cp ${FILENAME}.inpcrd ${FILENAME}_init0.rst
+mv ${FILENAME}_solvated.pdb solvatedpdb
+

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+MINPARAMS=2
+
+DEPEND=$1
+FILENAME=$2
+
+JOB_ID=`qsub -W depend\=afterok:$DEPEND $FILENAME`
+
+dt=$(date '+%d/%m/%Y %H:%M:%S')
+SCRIPT=$(echo "$FILENAME" | sed "s/\_/\\\_/g")
+DIRECTORY=$(echo "$PWD" | sed 's/home\/mah0106\///' | sed "s/\_/\\\_/g")
+JOBNUM=$(echo "$JOB_ID" | cut -d'.' -f 1)
+echo "$JOBNUM"

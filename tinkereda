@@ -1,0 +1,127 @@
+#!/bin/bash
+
+MINPARAMS=1
+FILENAME=$1
+
+PROTEINATOMS=$(proteinatoms $FILENAME)
+
+# Generate Analysis files for each frame in the set that exists.  
+for i in `seq 1 9`;
+do
+if [ -e ${FILENAME}.00$i ]
+then
+analyze ${FILENAME}.00$i A -1 $PROTEINATOMS > temp_${i}.dat
+sed -n '/Potential Energy Breakdown over Atoms/,$p' temp_${i}.dat > subtemp.dat
+sed -i 1,8d subtemp.dat
+mv subtemp.dat temp_${i}.dat
+fi
+done
+
+for i in `seq 10 99`;
+do
+if [ -e ${FILENAME}.0$i ]
+then
+analyze ${FILENAME}.0$i A -1 $PROTEINATOMS > temp_${i}.dat
+sed -n '/Potential Energy Breakdown over Atoms/,$p' temp_${i}.dat > subtemp.dat
+sed -i 1,8d subtemp.dat 
+mv subtemp.dat temp_${i}.dat
+fi
+done
+
+for i in `seq 100 999`;
+do
+if [ -e ${FILENAME}.$i ]
+then
+analyze ${FILENAME}.$i A -1 $PROTEINATOMS > temp_${i}.dat
+sed -n '/Potential Energy Breakdown over Atoms/,$p' temp_${i}.dat > subtemp.dat
+sed -i 1,8d subtemp.dat 
+mv subtemp.dat temp_${i}.dat
+fi
+done
+
+# Process through analysis files to generate totals and averages for each atom.
+for i in $(ls temp_*.dat);
+do
+        VDWTOTAL=0.0000		# 
+        POLARTOTAL=0.0000	# Reset Counters to Zero
+        COULOMBTOTAL=0.0000	#
+
+        for j in `seq 0 $(echo "$PROTEINATOMS-1" | bc)`; # Loops through individual atoms in frame
+        do
+                head -n 6 $i > fragment.dat
+                sed -i 1,6d $i
+                VDWTOTAL[$j]=$(awk 'FNR==3 {print $3}' fragment.dat)
+                POLARTOTAL[$j]=$(awk 'FNR==4 {print $2}' fragment.dat)
+                CHARGE=$(awk 'FNR==3 {print $4}' fragment.dat)
+                CHADIP=$(awk 'FNR==3 {print $5}' fragment.dat)
+                DIPOLE=$(awk 'FNR==3 {print $6}' fragment.dat)
+                MULTIPOLE=$(awk 'FNR==4 {print $1}' fragment.dat)
+                COULOMBTOTAL[j]=$(echo "$COULOMBTOTAL+$CHARGE+$CHADIP+$DIPOLE+$MULTIPOLE" | bc)
+	done
+        echo -e "${VDWTOTAL[*]}" >> vdwtemp.dat		# 
+        echo -e "${POLARTOTAL[*]}" >> polartemp.dat	# Output energy values to their files.
+        echo -e "${COULOMBTOTAL[*]}" >> coulombtemp.dat	# 
+        j=$[$j+1]					# Increase the counter by one to avoid double-
+        unset VDWTOTAL					# counting the atoms
+        unset POLARTOTAL				# 
+        unset COULOMBTOTAL				# Clearing the variables.
+        echo "File $i Analysis Complete." > jobinfo	# 
+done
+
+for k in `seq 1 $PROTEINATOMS`;
+do
+        VDWSTRINGVAR="awk '{VDWSUM+=\$$k} END {print VDWSUM/NR }' vdwtemp.dat"
+        POLSTRINGVAR="awk '{POLSUM+=\$$k} END {print POLSUM/NR }' polartemp.dat"
+        COUSTRINGVAR="awk '{COUSUM+=\$$k} END {print COUSUM/NR }' coulombtemp.dat"
+        VDWAVG=$(eval $VDWSTRINGVAR)
+        POLAVG=$(eval $POLSTRINGVAR)
+        COUAVG=$(eval $COUSTRINGVAR)
+        echo -e "$k \t $VDWAVG" >> VDW_By_Atom.dat
+        echo -e "$k \t $POLAVG" >> POL_By_Atom.dat
+        echo -e "$k \t $COUAVG" >> COU_By_Atom.dat
+done
+
+sed 's/e/*10^/g' VDW_By_Atom.dat > vdwhold.dat
+mv vdwhold.dat VDW_By_Atom.dat
+sed 's/e/*10^/g' POL_By_Atom.dat > polhold.dat
+mv polhold.dat POL_By_Atom.dat
+sed 's/e/*10^/g' COU_By_Atom.dat > couhold.dat
+mv couhold.dat COU_By_Atom.dat
+
+# Generate reslist.txt, which examines the .pdb and determines the number of atoms in each residue.
+atomsbyres $FILENAME
+
+RESNUM=0
+ATOMCOUNT=1
+echo -e "ResNum \t Energy" >VDW_ByRes.txt
+echo -e "ResNum \t Energy" >POL_ByRes.txt
+echo -e "ResNum \t Energy" >COU_ByRes.txt
+
+for q in `cat reslist.txt`;
+do
+        RESNUM=$[$RESNUM+1]
+        VDWRESSUM=0
+        VDWFILENAME="VDW_By_Residue_RES$RESNUM.dat"
+        POLRESSUM=0
+        POLFILENAME="Polarization_By_Residue_RES$RESNUM.dat"
+        COURESSUM=0
+        COUFILENAME="Coulombic_By_Residue_RES$RESNUM.dat"
+        for i in `seq $ATOMCOUNT $(echo "$q+$ATOMCOUNT-1" | bc)`;
+        do
+                VDWSTRINGVAR="awk 'FNR==$i {print \$2}' VDW_By_Atom.dat"
+                POLSTRINGVAR="awk 'FNR==$i {print \$2}' POL_By_Atom.dat"
+                COUSTRINGVAR="awk 'FNR==$i {print \$2}' COU_By_Atom.dat"
+                VDWTEMP=$(eval $VDWSTRINGVAR)
+                POLTEMP=$(eval $POLSTRINGVAR)
+                COUTEMP=$(eval $COUSTRINGVAR)
+                VDWRESSUM=$(echo "$VDWRESSUM + $VDWTEMP" | bc)
+                POLRESSUM=$(echo "$POLRESSUM + $POLTEMP" | bc)
+                COURESSUM=$(echo "$COURESSUM + $COUTEMP" | bc)
+        done
+        echo -e "$RESNUM \t $VDWRESSUM" >> VDW_ByRes.txt
+        echo -e "$RESNUM \t $POLRESSUM" >> POL_ByRes.txt
+        echo -e "$RESNUM \t $COURESSUM" >> COU_ByRes.txt
+        ATOMCOUNT=$(echo "$ATOMCOUNT + $q" | bc)
+done
+
+rm *.dat jobinfo

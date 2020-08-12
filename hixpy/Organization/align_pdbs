@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+import os
+import glob
+
+def Chimera_Align_Command_File(reference=None,target=None):
+    comms = open("_temp.com","w+")
+    if target == None:
+        file_list=glob.glob("*.pdb")
+        num_files = len(file_list)
+        if reference==None:
+            for i in range(num_files):
+                comms.write(f"open {file_list[i]}\n")
+        else:
+            comms.write(f"open {reference}\n")
+            for i in range(num_files):
+                if file_list[i] != reference:
+                    comms.write(f"open {file_list[i]}\n")
+        comms.write(f"mm #0 #1-{num_files-1} show false\n")
+        if reference==None:
+            for i in range(num_files):
+                comms.write(f"write format pdb relative #0 #{i} {file_list[i]}\n")
+        else:
+            for i in range(num_files):
+                if file_list[i] != reference:
+                    comms.write(f"write format pdb relative #0 #{i} {file_list[i]}\n")
+    comms.write("stop\n")
+    comms.close()
+    os.system("chimera --gui _temp.com")
+    os.system("rm _temp.com")
+
+if __name__ == "__main__":
+    Chimera_Align_Command_File()

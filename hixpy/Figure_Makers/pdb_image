@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+import os
+import glob
+import argparse
+
+def Chimera_PDB_Image(filename):
+    imagefile = filename.split(".")[0]+".png"
+    comms = open("_temp.com","w+")
+    comms.write(f"open {filename} \n")
+    comms.write(f"windowsize 800 600\n")
+    comms.write(f"backgroun solid white\n")
+    comms.write(f"~nucleotides\n")
+    comms.write(f"copy file {imagefile} png supersample 4 raytrace rtwait rtclean\n")
+    comms.write(f"stop\n")
+    comms.close()
+    os.system("chimera --gui _temp.com")
+    os.system("rm _temp.com")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i","--input", dest="infile",help="/path/to/input/file",required=True)
+    args = parser.parse_args()
+    Chimera_PDB_Image(args.infile)

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+MINPARAMS=3
+FILENAME=$1
+STARTRES=$2
+ENDRES=$3
+
+for i in `seq $STARTRES $ENDRES`;
+do
+	SEARCHSTRING="_$i@"
+	grep $SEARCHSTRING ${FILENAME}_hbond_avg.dat > temp.dat
+	for j in `seq $STARTRES $ENDRES`;
+	do
+		REMOVEPATTERN="sed -i '/_$j@/d' temp.dat"
+		if [ "$j" -ne "$i" ]
+		then
+			eval $REMOVEPATTERN
+		fi
+	done
+	sed -i -e 's/@/\t/g' temp.dat
+	awk '{if ( $1 != $3 ) printf "%8s %5s %8s %5s %8s %5s %7s %7s %7s %7s\n", $1, $2, $3, $4, $5, $6, $7, $8, $9, $10}' temp.dat > temp2.dat
+	mv temp2.dat temp.dat
+	awk '{if ($1 != $3) print $0 }' temp.dat >> hbond.$i
+	SUM=$(awk '{sum+=$7} END {print sum}' hbond.$i)
+	echo -e "$i $SUM" >> ${FILENAME}_Residue_HBond_Totals.txt
+done
+rm temp.dat

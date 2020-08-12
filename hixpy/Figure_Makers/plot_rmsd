@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import matplotlib.cm as cm
+from scipy.ndimage import gaussian_filter
+
+
+def Plot_Single_RMSD(filename,outfile,title,steps_per_ns):
+    data = np.genfromtxt(filename,skip_header=1,usecols=1)
+    x = np.arange(0,len(data),dtype=float)/steps_per_ns
+    smoothed = gaussian_filter(data,sigma=100)
+
+    fig = plt.figure(figsize=(6,4),dpi=300)
+    ax = fig.add_subplot(1,1,1)
+    ax.set_title(title)
+    ax.set_xlabel("Time (ns)")
+    ax.set_ylabel(r"RMSD ($\AA$)")
+
+    ax.set_xlim(0,x.max())
+    ax.plot(x,data,color="grey",alpha=0.5)
+    ax.plot(x,smoothed,color="blue",alpha=1.0)
+    fig.savefig(outfile,dpi=300,layout="tight")
+    return
+
+if __name__ == "__main__":
+    if len(sys.argv) == 5:
+        Plot_Single_RMSD(sys.argv[1],sys.argv[2],sys.argv[3],int(sys.argv[4]))
+    else:
+        print("Syntax Error:  Expected 4 arguments.\n\nplot_rmsd <input file> <output image file> <plot title> <steps per ns>\n\n")

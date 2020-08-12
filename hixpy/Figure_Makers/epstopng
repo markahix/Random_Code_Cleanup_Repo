@@ -1,0 +1,10 @@
+#!/bin/bash
+
+for i in $(ls *.eps)
+do
+FILENAME=${i%*.eps}
+convert -density 300 $FILENAME.eps $FILENAME.png
+convert -flatten $FILENAME.png $FILENAME.png
+convert -rotate 90 $FILENAME.png $FILENAME.png
+rm ${FILENAME}.eps
+done

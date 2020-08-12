@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for i in $(ls *.png)
+do
+echo $i
+convert -trim $i $i
+convert $i -bordercolor White -border 10x10 $i
+done
+

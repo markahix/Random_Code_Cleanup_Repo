@@ -1,0 +1,27 @@
+#!/bin/bash
+
+MINPARAMS=2
+
+FILENAME=$1
+RESCOUNT=$2
+
+cp ${FILENAME}.pdb pdb.tmp
+sed '/CONECT/d' ./pdb.tmp >> pdb2.tmp
+head -n -1 pdb2.tmp >> pdb3.tmp
+sed -n -e '/ATOM  /,$p' pdb3.tmp > pdb4.tmp
+
+for i in `seq 1 $RESCOUNT`;
+do
+ATOMSINRES[$i]=0
+done
+
+cut -c 23-26 pdb4.tmp > pdb5.tmp
+
+for j in `cat pdb5.tmp`;
+do
+#echo "$j"
+((ATOMSINRES[$j]++))
+done
+
+echo "${ATOMSINRES[*]}" >> reslist.txt
+rm *.tmp
